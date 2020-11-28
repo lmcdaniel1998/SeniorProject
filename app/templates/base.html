@@ -1,0 +1,40 @@
+<!--
+# author: Luke McDaniel
+# project: Senior Project
+# purpose: base template for all html pages on website
+# description: This file defines the header for all html files
+# will also print out messages sent to logged in users
+-->
+<html>
+    <head>
+        {% if title %}
+        <title>{{ title }} - Flask Server</title>
+        {% else %}
+        <title>Welcome to the Flask Server</title>
+        {% endif %}
+    </head>
+    <body>
+        <!-- Top navigation Bar -->
+        <div>
+            Flask Server:
+            <a href="{{ url_for('index') }}">Home</a>
+            {% if current_user.is_anonymous %}
+            <a href="{{ url_for('login') }}">Login</a>
+            {% else %}
+            <a href="{{ url_for('logout') }}">Logout</a>
+            {% endif %}
+        </div>
+        <!-- Print messages to user -->
+        <hr>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul>
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </body>
+</html>

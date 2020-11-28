@@ -1,0 +1,174 @@
+<!--
+# author: Luke McDaniel
+# project: Senior Project
+# purpose: home page for user, hosts web client
+# description: This web page is where a user can send and receive messages to and from its clients
+# a javascript web socket is used to transfer data from this web page to the server
+-->
+
+{% extends "base.html" %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block content %}
+    <h1>Hi, {{ current_user.username }}!</h1>
+	<!DOCTYPE html>
+	  <html lang="en">
+	  <head>
+	    <title>Flask_Server</title>
+	    <style>
+	    body {
+	      padding: 1rem;
+	    }
+	    .add-btn, .clear-btn, .submit-btn{
+	      font-size: 1.5rem;
+	      margin-bottom: 1rem;
+	    }
+	    .output {
+	      display: block;
+	      font-size: 1.5rem;
+	      font-family: Consolas,monaco,monospace;
+	    }
+	      </style>
+
+	  </head>
+	  <body>
+	  	  <!-- prints out session passcode created in javascript -->
+	  	  <h2 id="sessionPasscode">Your Session Passcode: </h2>
+	      <h2 title = "ChatInput" > Messages for {{ current_user.username }}: <span title = "Your email: {{ current_user.email }} "> {{ current_user.nickname }} </span></h2>
+	      <!-- used this 'invisible' text box to get username is javascript -->
+	      <p id = "username" style="color:lightgrey">{{ current_user.username}}</p>
+
+	      <!-- received messages are printed here -->
+	      <div id="myDIV">
+	         <textarea id="output" class="output"  rows="9" cols="85" readonly></textarea>
+	      </div>
+	    <br>
+	      <!-- input message to be sent here -->
+	      <form  action="inputText" method="POST">
+	        <input id="myInput" type="text" size = "100" class="message"  placeholder="Enter Message Here"/>
+	    </form>
+	      <!-- buttons used for sending message or clearing message buffer -->
+	      <div>
+	        <button id="add-btn" class="add-btn">Submit</button>
+	        <button id="clear-btn" class="clear-btn">Clear</button>
+	      </div>
+	           
+
+	    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+	    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	    <!-- source for javascript socketio library, cors must be enabled to accesss -->
+	    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
+	    <script type="text/javascript">
+	    	// create session passcode and display to user
+	    	var firstThree = Math.floor((Math.random() * 1000) + 1);
+	    	var secondThree = Math.floor((Math.random() * 1000) + 1);
+	    	var passcode = (firstThree.toString()).concat((secondThree.toString()));
+	    	var passcode_place = document.getElementById("sessionPasscode");
+	    	// show passcode on web page
+	    	passcode_place.innerHTML += passcode;
+
+	    	// inital strings for namespace and server address
+	    	var serverAddr = 'http://localhost:5000/';
+	    	var ns = '/' 
+
+			// get username with whitespaces removed
+			var username = (document.getElementById("username").textContent).split(" ").join("");
+			console.log(username);
+
+			// get email with whitespaces removed
+			var email = (document.getElementById("email").textContent).split(" ").join("");
+			console.log(email);
+
+			// create namespace string
+			var nameSpace = ns.concat(username);
+			console.log(nameSpace);
+			// create socket connection string
+			var socket_connection = serverAddr.concat(username);
+			console.log(socket_connection);
+
+			// establish socket connection
+			var socket = io.connect(socket_connection);
+
+			// get input text field
+			var myInput = document.getElementById("myInput");
+			console.log(myInput)
+
+			var mySID = "";
+
+			// Execute a function when the user releases a key on the keyboard
+	        myInput.addEventListener("keydown", function(event) {
+	          // Number 13 is the "Enter" key on the keyboard
+	            if (event.keyCode === 13) {
+	                console.log("in enter key processing")
+	                event.preventDefault();
+	                // Trigger the button element with a click
+	                document.getElementById("add-btn").click();
+	            }
+	        });
+
+	        // sends input text to all esp devices
+	        function emitMessage() {
+				console.log('in emit of message');
+				let user_input = $( 'input.message' ).val();
+			    socket.emit('web_to_server', user_input);
+			};
+
+			// puts text in received message into text box
+			function addToTextarea($ta, text) {
+	            var val = $ta.val();
+	            $ta.val(text);
+	            $ta.scrollTop($ta[0].scrollHeight);
+	        };
+
+			// sends server the webclient information after connection
+			socket.on('connect', function() {
+				console.log('I\'m connected!')
+			});
+
+			// receives messages from server that are sent to web from esps
+			socket.on('server_to_web', (msg) => {
+				console.log('in server -> web')
+				addToTextarea($('#output'), msg)
+				console.log(msg);
+			});
+
+			// after connect, server will inform web client if it is the first
+			// client to connect to the namespace. Master = false, you are first
+			// web client, Master = true, namespace already has a master.
+			// send master = true, your sid, and passcode if you are the first
+			socket.on('on_web_connect', (msg) => {
+				mySID = msg.sid;
+				// check master condition
+				if (msg.master === false && nameSpace === msg.namespace) {
+					// you are first web client
+					// send back your sid and session passcode
+					var returnData = {"master":true, "masterSid":msg.sid, "passcode":passcode};
+					//var returnData = {"m":1, "masterSid":msg.sid, "passcode":passcode};
+					var jsonString = JSON.stringify(returnData);
+					socket.emit('establishWebMaster', jsonString);
+				}
+				else {
+					socket.disconnect();
+				}
+			});
+
+			// when send button is clicked send the message
+			$('#add-btn').click(function() {
+	            console.log("in add button code " + $( 'input.message' ).val());
+	            emitMessage();
+	            $( 'input.message' ).val( '' ).focus();
+
+	        });
+
+	        // when clear button is clicked delete all text in div
+	        $('#clear-btn').click(function() {
+	            $('#output').val('');
+	            $( 'input.message' ).val( '' ).focus();
+	        });
+
+	    </script>
+
+	  </body>
+	  </html>
+
+{% endblock %}
