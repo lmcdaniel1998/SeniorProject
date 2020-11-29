@@ -126,7 +126,13 @@ class MyNamespace(Namespace):
             socketio.emit('on_connect', data, namespace=self.ns)
     
     # when a user disconnects remove its sid from the sidList so that no unregistered clients can use that sid to join namespace
+    # if master disconnects reset master fields
     def on_disconnect(self):
+        if str(request.sid) == self.primarySid:
+                self.primarySid = ""
+                self.master = False
+                self.passcode = 'XXXXXX'
+                (self.sidList).clear()
         if request.sid in self.sidList:
             (self.sidList).remove(request.sid)
 
